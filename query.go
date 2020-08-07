@@ -25,6 +25,8 @@ type Query struct {
 	havingClauses           havingClauses
 	Paginator               *Paginator
 	Connection              *Connection
+	tablePattern            string
+	globalClauses           clauses
 }
 
 // Clone will fill targetQ query with the connection used in q, if
@@ -42,6 +44,8 @@ func (q *Query) Clone(targetQ *Query) {
 	targetQ.groupClauses = q.groupClauses
 	targetQ.havingClauses = q.havingClauses
 	targetQ.addColumns = q.addColumns
+	targetQ.tablePattern = q.tablePattern
+	targetQ.globalClauses = q.globalClauses
 
 	if q.Paginator != nil {
 		paginator := *q.Paginator
@@ -131,12 +135,23 @@ func (q *Query) Where(stmt string, args ...interface{}) *Query {
 		return q
 	}
 	if inRegex.MatchString(stmt) {
+		if len(args) == 2 {
+			q, ok := args[1].(*Query)
+			if ok {
+				model := &Model{Value: args[0]}
+				s, a := q.ToSQL(model)
+				stmt = inRegex.ReplaceAllLiteralString(stmt, s)
+				q.whereClauses = append(q.whereClauses, clause{stmt, a})
+				return q
+			}
+		}
+
 		var inq []string
 		for i := 0; i < len(args); i++ {
 			inq = append(inq, "?")
 		}
-		qs := fmt.Sprintf("(%s)", strings.Join(inq, ","))
-		stmt = strings.Replace(stmt, "(?)", qs, 1)
+		qs := fmt.Sprintf("IN (%s)", strings.Join(inq, ","))
+		stmt = inRegex.ReplaceAllLiteralString(stmt, qs)
 	}
 	q.whereClauses = append(q.whereClauses, clause{stmt, args})
 	return q
@@ -191,17 +206,21 @@ func (q *Query) EagerPreload(fields ...string) *Query {
 // Q will create a new "empty" query from the current connection.
 func Q(c *Connection) *Query {
 	return &Query{
-		RawSQL:      &clause{},
-		Connection:  c,
-		eager:       c.eager,
-		eagerFields: c.eagerFields,
-		eagerMode:   eagerModeNil,
+		tablePattern: "%v",
+		RawSQL:       &clause{},
+		Connection:   c,
+		eager:        c.eager,
+		eagerFields:  c.eagerFields,
+		eagerMode:    eagerModeNil,
 	}
 }
 
 // ToSQL will generate SQL and the appropriate arguments for that SQL
 // from the `Model` passed in.
 func (q Query) ToSQL(model *Model, addColumns ...string) (string, []interface{}) {
+	if model != nil {
+		model.tableName = fmt.Sprintf(q.tablePattern, model.TableName())
+	}
 	sb := q.toSQLBuilder(model, addColumns...)
 	return sb.String(), sb.Args()
 }
