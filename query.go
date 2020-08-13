@@ -25,6 +25,8 @@ type Query struct {
 	havingClauses           havingClauses
 	Paginator               *Paginator
 	Connection              *Connection
+	tablePattern            string
+	globalClauses           clauses
 }
 
 // Clone will fill targetQ query with the connection used in q, if
@@ -42,6 +44,8 @@ func (q *Query) Clone(targetQ *Query) {
 	targetQ.groupClauses = q.groupClauses
 	targetQ.havingClauses = q.havingClauses
 	targetQ.addColumns = q.addColumns
+	targetQ.tablePattern = q.tablePattern
+	targetQ.globalClauses = q.globalClauses
 
 	if q.Paginator != nil {
 		paginator := *q.Paginator
@@ -191,17 +195,21 @@ func (q *Query) EagerPreload(fields ...string) *Query {
 // Q will create a new "empty" query from the current connection.
 func Q(c *Connection) *Query {
 	return &Query{
-		RawSQL:      &clause{},
-		Connection:  c,
-		eager:       c.eager,
-		eagerFields: c.eagerFields,
-		eagerMode:   eagerModeNil,
+		tablePattern: "%v",
+		RawSQL:       &clause{},
+		Connection:   c,
+		eager:        c.eager,
+		eagerFields:  c.eagerFields,
+		eagerMode:    eagerModeNil,
 	}
 }
 
 // ToSQL will generate SQL and the appropriate arguments for that SQL
 // from the `Model` passed in.
 func (q Query) ToSQL(model *Model, addColumns ...string) (string, []interface{}) {
+	if model != nil {
+		model.tableName = fmt.Sprintf(q.tablePattern, model.TableName())
+	}
 	sb := q.toSQLBuilder(model, addColumns...)
 	return sb.String(), sb.Args()
 }
