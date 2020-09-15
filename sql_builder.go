@@ -158,7 +158,7 @@ func (sq *sqlBuilder) buildJoinClauses(sql string) string {
 	if len(oc) > 0 {
 		sql += " " + oc.String()
 		for i := range oc {
-			sq.args = append(sq.args, oc[i].Arguments...)
+			sq.args = append(sq.args, oc[i].On.Args()...)
 		}
 	}
 

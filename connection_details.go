@@ -47,6 +47,10 @@ type ConnectionDetails struct {
 	Options map[string]string
 	// Query string encoded options from URL. Example: "sslmode=disable"
 	RawOptions string
+	// Mode overrides behavior with how Pop interacts with the database, from one of the following:
+	// - default: Normal database access behavior
+	// - history: Tracks historical changes in the database on X_history tables that mirror the content.
+	Mode string
 }
 
 var dialectX = regexp.MustCompile(`\S+://`)

@@ -60,6 +60,15 @@ func NewConnection(deets *ConnectionDetails) (*Connection, error) {
 		if err != nil {
 			return c, errors.Wrap(err, "could not create new connection")
 		}
+
+		mode, ok := modes[deets.Mode]
+		if !ok {
+			return c, errors.Errorf("unknown mode \"%v\"", deets.Mode)
+		}
+		err = mode(c, deets)
+		if err != nil {
+			return c, errors.Wrap(err, "applying mode")
+		}
 		return c, nil
 	}
 	return nil, errors.Errorf("could not found connection creator for %v", deets.Dialect)

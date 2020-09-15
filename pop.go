@@ -46,6 +46,12 @@ var finalizer = make(map[string]func(*ConnectionDetails))
 // map of connection creators
 var newConnection = make(map[string]func(*ConnectionDetails) (dialect, error))
 
+// map of modes that can be enabled
+var modes = map[string]func(*Connection, *ConnectionDetails) error{
+	"":        func(*Connection, *ConnectionDetails) error { return nil },
+	"default": func(*Connection, *ConnectionDetails) error { return nil },
+}
+
 // DialectSupported checks support for the given database dialect
 func DialectSupported(d string) bool {
 	for _, ad := range AvailableDialects {
