@@ -39,7 +39,7 @@ func (h historyDB) insertHistory(s store, m *Model, t time.Time) error {
 	idField := m.IDField()
 	id := m.ID()
 
-	cols := columns.ForStruct(m.Value, m.TableName())
+	cols := columns.ForStruct(m.Value, m.TableName(), "id")
 	cols.Add(idField)
 	r := cols.Readable()
 	w := cols.Writeable()

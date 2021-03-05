@@ -29,6 +29,8 @@ type Model struct {
 	Value
 	ctx context.Context
 	As  string
+
+	tableName string
 }
 
 // NewModel returns a new model with the specified value and context.
@@ -101,6 +103,10 @@ type TableNameAbleWithContext interface {
 // TableName returns the corresponding name of the underlying database table
 // for a given `Model`. See also `TableNameAble` to change the default name of the table.
 func (m *Model) TableName() string {
+	if m.tableName != "" {
+		return m.tableName
+	}
+
 	if s, ok := m.Value.(string); ok {
 		return s
 	}
