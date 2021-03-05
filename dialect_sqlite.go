@@ -3,6 +3,7 @@
 package pop
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"io"
 	"net/url"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mattn/go-sqlite3"
 
 	"github.com/gobuffalo/fizz"
 	"github.com/gobuffalo/fizz/translators"
@@ -71,6 +74,7 @@ func (m *sqlite) Create(s store, model *Model, cols columns.Columns) error {
 		switch keyType {
 		case "int", "int64":
 			var id int64
+			cols.Remove(model.IDField())
 			w := cols.Writeable()
 			var query string
 			if len(w.Cols) > 0 {
@@ -288,4 +292,8 @@ func finalizerSQLite(cd *ConnectionDetails) {
 			log(logging.Warn, "IMPORTANT! '%s=%s' option is required to work properly. Please add it to the database URL in the config!", k, v)
 		} // or fix user specified url?
 	}
+}
+
+func newSQLiteDriver() (driver.Driver, error) {
+	return new(sqlite3.SQLiteDriver), nil
 }

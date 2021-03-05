@@ -27,6 +27,7 @@ type store interface {
 	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
 	PrepareNamedContext(context.Context, string) (*sqlx.NamedStmt, error)
 	TransactionContext(context.Context) (*Tx, error)
+	TransactionContextOptions(context.Context, *sql.TxOptions) (*Tx, error)
 }
 
 // ContextStore wraps a store with a Context, so passes it with the functions that don't take it.
@@ -52,4 +53,8 @@ func (s contextStore) Exec(query string, args ...interface{}) (sql.Result, error
 }
 func (s contextStore) PrepareNamed(query string) (*sqlx.NamedStmt, error) {
 	return s.store.PrepareNamedContext(s.ctx, query)
+}
+
+func (s contextStore) Context() context.Context {
+	return s.ctx
 }

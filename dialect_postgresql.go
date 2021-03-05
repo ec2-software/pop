@@ -1,7 +1,6 @@
 package pop
 
 import (
-	"database/sql"
 	"fmt"
 	"io"
 	"os/exec"
@@ -61,30 +60,28 @@ func (p *postgresql) Create(s store, model *Model, cols columns.Columns) error {
 	}
 	switch keyType {
 	case "int", "int64":
-		cols.Remove("id")
-		id := struct {
-			ID int `db:"id"`
-		}{}
+		cols.Remove(model.IDField())
 		w := cols.Writeable()
 		var query string
 		if len(w.Cols) > 0 {
-			query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) returning id", p.Quote(model.TableName()), w.QuotedString(p), w.SymbolizedString())
+			query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) returning %s", p.Quote(model.TableName()), w.QuotedString(p), w.SymbolizedString(), model.IDField())
 		} else {
-			query = fmt.Sprintf("INSERT INTO %s DEFAULT VALUES returning id", p.Quote(model.TableName()))
+			query = fmt.Sprintf("INSERT INTO %s DEFAULT VALUES returning %s", p.Quote(model.TableName()), model.IDField())
 		}
 		log(logging.SQL, query)
 		stmt, err := s.PrepareNamed(query)
 		if err != nil {
 			return err
 		}
-		err = stmt.Get(&id, model.Value)
+		id := map[string]interface{}{}
+		err = stmt.QueryRow(model.Value).MapScan(id)
 		if err != nil {
 			if closeErr := stmt.Close(); closeErr != nil {
 				return errors.Wrapf(err, "failed to close prepared statement: %s", closeErr)
 			}
 			return err
 		}
-		model.setID(id.ID)
+		model.setID(id[model.IDField()])
 		return errors.WithMessage(stmt.Close(), "failed to close statement")
 	}
 	return genericCreate(s, model, cols, p)
@@ -115,12 +112,7 @@ func (p *postgresql) CreateDB() error {
 	// createdb -h db -p 5432 -U postgres enterprise_development
 	deets := p.ConnectionDetails
 
-	driver := p.DefaultDriver()
-	if p.ConnectionDetails.Driver != "" {
-		driver = p.ConnectionDetails.Driver
-	}
-
-	db, err := sql.Open(driver, p.urlWithoutDb())
+	db, err := openPotentiallyInstrumentedConnection(p, p.urlWithoutDb())
 	if err != nil {
 		return errors.Wrapf(err, "error creating PostgreSQL database %s", deets.Database)
 	}
@@ -140,13 +132,7 @@ func (p *postgresql) CreateDB() error {
 func (p *postgresql) DropDB() error {
 	deets := p.ConnectionDetails
 
-	// Overwrite dialect to match pgx driver for sql.Open
-	driver := p.DefaultDriver()
-	if p.ConnectionDetails.Driver != "" {
-		driver = p.ConnectionDetails.Driver
-	}
-
-	db, err := sql.Open(driver, p.urlWithoutDb())
+	db, err := openPotentiallyInstrumentedConnection(p, p.urlWithoutDb())
 	if err != nil {
 		return errors.Wrapf(err, "error dropping PostgreSQL database %s", deets.Database)
 	}
@@ -210,7 +196,7 @@ func (p *postgresql) DumpSchema(w io.Writer) error {
 
 // LoadSchema executes a schema sql file against the configured database.
 func (p *postgresql) LoadSchema(r io.Reader) error {
-	return genericLoadSchema(p.ConnectionDetails, p.DefaultDriver(), p.MigrationURL(), r)
+	return genericLoadSchema(p, r)
 }
 
 // TruncateAll truncates all tables for the given connection.

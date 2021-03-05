@@ -14,7 +14,6 @@ import (
 	"github.com/gobuffalo/pop/v5/columns"
 	"github.com/gobuffalo/pop/v5/logging"
 	"github.com/gofrs/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
 
@@ -51,6 +50,7 @@ func genericCreate(s store, model *Model, cols columns.Columns, quoter quotable)
 	switch keyType {
 	case "int", "int64":
 		var id int64
+		cols.Remove(model.IDField())
 		w := cols.Writeable()
 		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", quoter.Quote(model.TableName()), w.QuotedString(quoter), w.SymbolizedString())
 		log(logging.SQL, query)
@@ -79,7 +79,7 @@ func genericCreate(s store, model *Model, cols columns.Columns, quoter quotable)
 			return fmt.Errorf("missing ID value")
 		}
 		w := cols.Writeable()
-		w.Add("id")
+		w.Add(model.IDField())
 		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", quoter.Quote(model.TableName()), w.QuotedString(quoter), w.SymbolizedString())
 		log(logging.SQL, query)
 		stmt, err := s.PrepareNamed(query)
@@ -143,13 +143,11 @@ func genericSelectMany(s store, models *Model, query Query) error {
 	return nil
 }
 
-func genericLoadSchema(deets *ConnectionDetails, defaultDriver, migrationURL string, r io.Reader) error {
+func genericLoadSchema(d dialect, r io.Reader) error {
+	deets := d.Details()
+
 	// Open DB connection on the target DB
-	driver := defaultDriver
-	if deets.Driver != "" {
-		driver = deets.Driver
-	}
-	db, err := sqlx.Open(driver, migrationURL)
+	db, err := openPotentiallyInstrumentedConnection(d, d.MigrationURL())
 	if err != nil {
 		return errors.WithMessage(err, fmt.Sprintf("unable to load schema for %s", deets.Database))
 	}
