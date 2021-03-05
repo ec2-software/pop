@@ -208,6 +208,7 @@ func Q(c *Connection) *Query {
 // from the `Model` passed in.
 func (q Query) ToSQL(model *Model, addColumns ...string) (string, []interface{}) {
 	if model != nil {
+		model.As = model.TableName()
 		model.tableName = fmt.Sprintf(q.tablePattern, model.TableName())
 	}
 	sb := q.toSQLBuilder(model, addColumns...)

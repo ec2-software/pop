@@ -2,6 +2,7 @@ package pop
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gobuffalo/pop/v5/logging"
 )
@@ -11,10 +12,15 @@ func (q *Query) join(joinType, table, on string, args []interface{}) *Query {
 		log(logging.Warn, "Query is setup to use raw SQL")
 		return q
 	}
+
 	c := joinClause{
 		JoinType: joinType,
-		Table:    fmt.Sprintf(q.tablePattern, table),
+		Table:    fmt.Sprintf(q.tablePattern+" AS %v", table, table),
 		On:       clauses{clause{Fragment: on, Arguments: args}},
+	}
+	// replace `%TABLE_NAME%` with `table`
+	for i := range q.globalClauses {
+		q.globalClauses[i].Fragment = strings.ReplaceAll(q.globalClauses[i].Fragment, AliasToken, table)
 	}
 	c.On = append(c.On, q.globalClauses...)
 	q.joinClauses = append(q.joinClauses, c)

@@ -108,9 +108,12 @@ func (h historyDB) Destroy(s store, m *Model) error {
 	return errors.Wrap(h.deleteHistory(s, m, t), "historical delete")
 }
 
+// AliasToken is a string that can be used in clauses that will be replaced with the name/alias of the table being selected/joined.
+const AliasToken string = "%TABLE_NAME%"
+
 func (h historyDB) QueryHistory(q *Query, t time.Time) *Query {
 	c := clause{
-		"created_at <= ? AND (deleted_at IS NULL OR deleted_at > ?)",
+		fmt.Sprintf("%v.created_at <= ? AND (%v.deleted_at IS NULL OR %v.deleted_at > ?)", AliasToken, AliasToken, AliasToken),
 		[]interface{}{t, t},
 	}
 	q.whereClauses = append(q.whereClauses, c)

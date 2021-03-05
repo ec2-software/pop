@@ -146,6 +146,9 @@ func (sq *sqlBuilder) buildWhereClauses(sql string) string {
 	}
 
 	wc := sq.Query.whereClauses
+	for i := range wc {
+		wc[i].Fragment = strings.ReplaceAll(wc[i].Fragment, AliasToken, sq.Model.As)
+	}
 	if len(wc) > 0 {
 		sql = fmt.Sprintf("%s WHERE %s", sql, wc.Join(" AND "))
 		sq.args = append(sq.args, wc.Args()...)
